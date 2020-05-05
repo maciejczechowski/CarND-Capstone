@@ -16,7 +16,7 @@ class Controller(object):
         ki = 0.1
         kd = 0.
         mn = 0. #min throttle
-        mx = 0.2 #max throttle
+        mx = 1 #max throttle
         self.throttle_controller = PID(kp, ki, kd, mn, mx)
 
         tau = 0.5 # 1/(2PI*tau) = cutoff freq
@@ -50,6 +50,7 @@ class Controller(object):
         self.last_time = current_time
 
         throttle = self.throttle_controller.step(vel_error, sample_time)
+        throttle = min(throttle, self.accel_limit)
         brake = 0
 
         if linear_vel == 0. and current_vel < 0.1:
