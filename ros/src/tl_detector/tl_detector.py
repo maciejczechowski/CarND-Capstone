@@ -23,6 +23,7 @@ class TLDetector(object):
         self.pose = None
         self.waypoints = None
         self.camera_image = None
+        self.has_image = False
         self.lights = []
 
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
@@ -41,16 +42,24 @@ class TLDetector(object):
         config_string = rospy.get_param("/traffic_light_config")
         self.config = yaml.load(config_string)
 
+        self.is_site = self.config['is_site']
+
         self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
 
         self.bridge = CvBridge()
-        self.light_classifier = TLClassifier()
+        self.light_classifier = TLClassifier(self.is_site)
         self.listener = tf.TransformListener()
 
         self.state = TrafficLight.UNKNOWN
         self.last_state = TrafficLight.UNKNOWN
         self.last_wp = -1
         self.state_count = 0
+
+        rate = rospy.Rate(self.config['rate'])
+        while not rospy.is_shutdown():
+            self.runloop()
+           
+            rate.sleep()
 
         rospy.spin()
 
@@ -66,19 +75,18 @@ class TLDetector(object):
     def traffic_cb(self, msg):
         self.lights = msg.lights
 
-    def image_cb(self, msg):
-        """Identifies red lights in the incoming camera image and publishes the index
-            of the waypoint closest to the red light's stop line to /traffic_waypoint
 
-        Args:
-            msg (Image): image from car-mounted camera
+    def runloop(self):
+        if self.is_site:
+            self.get_light_state(None)
 
-        """
-        self.has_image = True
-        self.camera_image = msg
+        if not self.pose:
+            return
+
+
         light_wp, state = self.process_traffic_lights()
 
-     #   rospy.logwarn("Closest light {0} with state {1}".format(light_wp, state))
+        #rospy.logwarn("Closest light {0} with state {1}".format(light_wp, state))
 
         '''
         Publish upcoming red lights at camera frequency.
@@ -86,7 +94,7 @@ class TLDetector(object):
         of times till we start using it. Otherwise the previous stable state is
         used.
         '''
-        if self.state != state:
+        if self.state != state and state != TrafficLight.UNKNOWN:
             self.state_count = 0
             self.state = state
         elif self.state_count >= STATE_COUNT_THRESHOLD:
@@ -97,6 +105,18 @@ class TLDetector(object):
         else:
             self.upcoming_red_light_pub.publish(Int32(self.last_wp))
         self.state_count += 1
+
+    def image_cb(self, msg):
+        """Identifies red lights in the incoming camera image and publishes the index
+            of the waypoint closest to the red light's stop line to /traffic_waypoint
+
+        Args:
+            msg (Image): image from car-mounted camera
+
+        """
+        self.has_image = True
+        self.camera_image = msg
+       
 
     def get_closest_waypoint(self, x, y):
         """Identifies the closest path waypoint to the given position
@@ -123,18 +143,34 @@ class TLDetector(object):
         """
         # if self.has_image:
         #     cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
-        #     cv2.imwrite("/capstone/ros/images/im{0}-{1}.png".format(self.tick, light.state), cv_image)
-        #     self.tick += 1
-        return light.state
+       
+        #return light.state
 
-        # if(not self.has_image):
-        #     self.prev_light_loc = None
-        #     return False
+        if not self.has_image:
+             return TrafficLight.UNKNOWN
 
+        image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+        detected_light, score = self.light_classifier.get_classification(image)
+
+     #   rospy.logwarn("Classified light: {0} with score {1}".format(self.getLightName(detected_light), score))
+
+        if self.is_site:
+            cv2.imwrite("/capstone/ros/images/bag{0}-{1}.png".format(self.tick, self.getLightName(detected_light)), image)
+            self.tick += 1
         
+        return detected_light
 
         # #Get classification
-        # return self.light_classifier.get_classification(cv_image)
+        # return 
+
+    def getLightName(self, light):
+        if light == 0:
+            return 'RED'
+        elif light == 1:
+            return 'YELLOW'
+        elif light == 2:
+            return 'GREEN'
+        return 'UNKNOWN'
 
     def distance(self, waypoints, wp1, wp2):
         dist = 0
@@ -153,12 +189,13 @@ class TLDetector(object):
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
 
         """
-        
+
         closest_light = None
         line_wp_ix = None
 
         # List of positions that correspond to the line to stop in front of for a given intersection
         stop_line_positions = self.config['stop_line_positions']
+
         if(self.pose):
             car_wp_idx = self.get_closest_waypoint(self.pose.pose.position.x, self.pose.pose.position.y)
             diff = len(self.waypoints.waypoints)
@@ -171,10 +208,10 @@ class TLDetector(object):
                     closest_light = light
                     line_wp_ix = temp_wp_idx
         
-        dist = self.distance(self.waypoints.waypoints, car_wp_idx, line_wp_ix)
+   #     dist = self.distance(self.waypoints.waypoints, car_wp_idx, line_wp_ix)
         #rospy.logwarn("DIstance to light: {0}".format(dist))
 
-        if closest_light and dist < 50:
+        if closest_light: # and dist < 100:
             state = self.get_light_state(closest_light)
             return line_wp_ix, state
 

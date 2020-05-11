@@ -29,6 +29,7 @@ class WaypointLoader(object):
     def new_waypoint_loader(self, path):
         if os.path.isfile(path):
             waypoints = self.load_waypoints(path)
+
             self.publish(waypoints)
             rospy.loginfo('Waypoint Loded')
         else:

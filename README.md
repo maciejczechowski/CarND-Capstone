@@ -1,3 +1,37 @@
+# Udacity Self-Driving Car Engineer Capstone
+
+## Project Memebrs
+Maciej Czechowski ([](matchey@gmail.com))
+
+
+## System architecture
+
+### Waypoint updater
+The waypoint updater node determines the waypoints vehicle should follow and desired velocity while passing them. It uses traffic light detector as an input: when red light is detected, speed is reduced to 0 in order to stop.
+
+Waypoints are publish at a rate of 20Hz. The numer of waypoints to publish at once was set to 100.
+
+### Twist controller
+The Twist controller is responsible for calculating steering/throttle/brake values for the vehicle.
+Yaw controller is used for Steering, while PID controlls the throttle. The velocity input for both controllers is low-pass filtered to remove sensor noise. 
+If controller detects a need for brake (like in order to stop on red light), a linear force is applied fo brake pedal (limited to maximum deceleration rate). When stopped, 700Nm force is applied to keep car stationary.
+
+If DBW module is disengaged, no output is being sent, and PID erros are not being updated.
+
+### Traffic light classificator
+The Traffic Light Classificator is responsible for detecting red light in front of the car.
+The detection is based on machine learning, using Single Shot Detection. Models used are different for site and simulation:
+
+1. For Simlation, SSD Inception V2, trained for 45000 steps on Azure virtual machine.
+2. For Site, Pre-Trained model from [Alex Lenchner](https://github.com/alex-lechner/Traffic-Light-Classification)
+
+
+The software installed on Carla (especially TensorFlow) limited the possibilities of exploration. TensorFlow now includes new SSD models which would be very interesting to try.
+
+
+----------------
+
+
 This is the project repo for the final project of the Udacity Self-Driving Car Nanodegree: Programming a Real Self-Driving Car. For more information about the project, see the project introduction [here](https://classroom.udacity.com/nanodegrees/nd013/parts/6047fe34-d93c-4f50-8336-b70ef10cb4b2/modules/e1a23b06-329a-4684-a717-ad476f0d8dff/lessons/462c933d-9f24-42d3-8bdc-a08a5fc866e4/concepts/5ab4b122-83e6-436d-850f-9f4d26627fd9).
 
 Please use **one** of the two installation options, either native **or** docker installation.

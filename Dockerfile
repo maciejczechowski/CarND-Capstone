@@ -29,6 +29,7 @@ RUN apt-get install -y ros-$ROS_DISTRO-image-proc
 RUN apt-get install -y netbase
 RUN pip install -U pip
 RUN pip install pillow --upgrade
+RUN pip install mock
 
 #RUN mkdir /capstone
 #VOLUME ["/capstone"]
