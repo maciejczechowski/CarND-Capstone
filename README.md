@@ -1,7 +1,7 @@
 # Udacity Self-Driving Car Engineer Capstone
 
 ## Project Memebrs
-Maciej Czechowski ([](matchey@gmail.com))
+Maciej Czechowski ([matchey@gmail.com](matchey@gmail.com))
 
 
 ## System architecture
